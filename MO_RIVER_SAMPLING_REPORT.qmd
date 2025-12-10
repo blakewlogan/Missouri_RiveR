@@ -1,0 +1,131 @@
+---
+title: "Missouri River Fish Sampling Report"
+subtitle: "Nebraska Game and Parks Commission"
+author: "Blake Logan | Fisheries Biologist"
+date: today
+format: 
+  html:
+    grid: 
+      margin-width: 350px
+  pdf: default 
+reference-location: margin
+citation-location: margin
+theme: lumen
+---
+
+# Introduction
+
+The Missouri River is so awesome and so cool. Here is some information about the fish we collected last year. The Missouri River is so awesome and so cool and did I mention awesome?. Here is some information about the fish we collected last . The Missouri River is so awesome and so cool. Here is some information about the fish we collected last year. The Missouri River is so awesome and cool it makes me want to tweak out. Here is the information about the fish we collected down on the rivah. The Missouri River is so awesome and so cool and splendid too. Here is some information about the fish we collected last year. The Missouri River is so awesome and so cool. Here is some information about the fish we collected betwixt the bars.
+
+::: {.column-screen}
+![The Missouri River upstream of Mulberry Bend Wildlife Management Area.](river.png)
+:::
+
+## Channel Catfish
+
+Channel Catfish are sampled during July and August with baited hoop nets. All Channel Catfish are measured and weighed, and one pectoral spine is removed from most Channel Catfish for aging. Below are graphs showing the average number of Channel Catfish caught per hoop net and size structure at each sampling location.
+
+```{r}
+#| echo: FALSE
+#| message: FALSE
+library(ggplot2)
+library(tidyverse)
+library(ggpubr)
+data <- read.csv("Query1.csv") %>% 
+  filter(SPECIES == "CNCF",
+         GEAR %in% c("HN38","HN25")) %>% 
+  #U1 != "60") %>% 
+  janitor::clean_names() %>% 
+  mutate(source = "2025 Tandem",
+         species = ifelse(species == "CNCF", "Channel Catfish", species),
+         segment = case_when(startlatitude > 42.3 & startlongitude < -97.68 ~ "Upper Unchannelized",
+                             startlatitude > 42.3 & startlongitude > -97.68 ~ "Lower Unchannelized",
+                             startlatitude < 42.3 & startlatitude > 41.055975 ~ "Upper Channelized",
+                             startlatitude < 42.3 & startlatitude < 41.055975 ~ "Lower Channelized"),
+         gear = case_when(gear == "HN25" ~ "2 foot Hoop Net with 1 inch mesh",
+                          gear == "HN38" ~ "4 foot Hoop Net with 1.5 inch mesh")) %>% 
+  filter(!is.na(length))
+
+#make segment a factor for plotting
+data$segment <- factor(data$segment, levels = c("Upper Unchannelized", "Lower Unchannelized", "Upper Channelized","Lower Channelized"))
+
+data <- data %>% 
+  mutate(lengthin = length/25.4)
+
+```
+
+```{r}
+#| echo: FALSE
+#| label: fig-cpnn
+#| fig-cap: "Catch per net night of Channel Catfish in each Missouri River Management Section. Bold lines within boxes represent median values and the top and bottom extent of boxes correspond to the 1st and 3rd quartiles. Whiskers extend to points within 1.5 times the inter-quartile range (IQR) from box extents. Black points represent values that lie beyond 1.5 times the IQR from box extents (i.e., outliers)."
+#| fig-width: 8
+#| fig-height: 4
+#| cap-location: margin
+#| warning: false
+count_table <- data %>% 
+  group_by(mr_fid, segment) %>% 
+  summarise(count = n())
+
+ggplot(data = count_table, aes(x = segment, y = count)) +
+  geom_boxplot() +
+  labs(x = "Missouri River Section", y = "Catch per Net Night") +
+  scale_y_continuous(limits = c(0,35), breaks = seq(0,35,5)) +
+  theme_pubr()
+```
+
+
+Channel Catfish are abundant throughout the Missouri River, but occurred in greater numbers in the unchannelized sections (from Fort Randall Dam to Lewis and Clark Lake and from Gavins Point Dam to Ponca, NE) and the upper channelized section (from Ponca, NE to the Platte-Missouri River confluence) in 2025 (Figure 1). Size structure was similar between all river sections and most Channel Catfish ranged from 15 to 20 inches (Figure 2). 
+
+
+```{r}
+#| warning: false
+#| echo: false
+#| label: fig-main-margin-cap
+#| fig-cap: "Length frequency distributions of Channel Catfish collected in each Missouri River management section with both hoop net configurations."
+#| fig-width: 4
+#| fig-height: 8
+#| fig-column: margin
+#| cap-location: margin
+ggplot(data = data, aes(x = lengthin, group = segment)) +
+  geom_histogram() +
+  facet_wrap(~segment, ncol = 1, scales = "free_x") +
+  scale_x_continuous(limits = c(0,31), breaks = seq(0,30,5)) +
+  scale_y_continuous(limits = c(0,30), breaks = seq(0,30,5)) +  
+  labs(x = "Total Length (inches)", y = "Count") +
+  coord_cartesian(expand = FALSE) +
+  theme_pubr()
+```
+
+
+::: {#fig-channel echo: FALSE}
+
+![Piebald Channel Catfish collected from the Missouri River by NGPC staff.](channel.png){#fig-channel}
+
+:::
+
+```{r}
+#| warning: false
+#| echo: false
+#| label: fig-bar
+#| fig-cap: "Total number and size structure of Channel Catfish collected in each Missouri River section. Colored bins respresent length categories (inches), and total bar and bin height (y-axis extent) correspond to the number of catfish collected in each segment and length bin, respectively."
+#| fig-width: 8
+#| fig-height: 4
+#| cap-location: margin
+df <- data %>% 
+  mutate(length_bin = cut(lengthin,
+                          breaks = c(0, 11, 16, 24, Inf),
+                          labels = c("<11", "11-16", "16-24", ">24"))) %>%
+  group_by(segment, length_bin) %>%
+  summarise(avg_count = mean(n()), .groups = "drop")
+
+df$length_bin <- factor(df$length_bin, levels = c(">24", "16-24","11-16", "<11"))
+
+ggplot(data = df, aes(x = segment, y = avg_count, fill = length_bin)) +
+  geom_col(position = "stack", width = 0.35) +
+  labs(x = "Missouri River Section",
+       y = "Number of Channel Catfish Collected",
+       fill = "Length Bin (inches)") +
+  scale_y_continuous(expand = c(0,0), limits = c(0,150), breaks = seq(0,150,25)) +
+  scale_fill_viridis_d() +
+  theme_pubr()
+```
